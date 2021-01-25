@@ -1,0 +1,23 @@
+{
+  "name": "triangular-arbitrage",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/hezh08/triangular-arbitrage.git"
+  },
+  "author": "Henry Zhou",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/hezh08/triangular-arbitrage/issues"
+  },
+  "homepage": "https://github.com/hezh08/triangular-arbitrage#readme",
+  "dependencies": {
+    "axios": "^0.21.1",
+    "ws": "^7.4.2"
+  }
+}
