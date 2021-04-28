@@ -133,11 +133,10 @@ function calculateArbitrageOpportunity() {
 function getArbitrage(ex1, ex2, ex3, tradingAmount, tradingFee=0.0085, takerFee=0.002, reverseMiddle=false) {
     // (Normal)  e.g. AUD --> ETH, ETH --> BTC, BTC --> AUD
     // (Reverse) e.g. AUD --> BTC, BTC --> ETH, ETH --> AUD
-    let calculation = tradingAmount/ex1;
-    calculation = (reverseMiddle) ? calculation/ex2 : calculation*ex2;
-    calculation = calculation*ex3;    
-    let totalFees = tradingAmount*tradingFee + tradingAmount*takerFee + calculation*tradingFee;
-    let turnover = calculation - tradingAmount - totalFees;
+    let cryptoFromFiat = tradingAmount /(ex1 * (1 + tradingFee));
+    let cryptoFromCrypto = (reverseMiddle) ? cryptoFromFiat/(ex2 * (1 + takerFee)) : cryptoFromFiat * ex2 * (1 - takerFee);
+    let fiatFromCrypto = cryptoFromCrypto * ex3 * (1 - tradingFee);
+    let turnover = fiatFromCrypto - tradingAmount;
     
     if (turnover > 0) {
       console.log(" Arbitrage Opportunity | Profit: $" + turnover);
