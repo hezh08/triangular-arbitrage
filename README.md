@@ -4,7 +4,8 @@ subscribes to the ETH-AUD, ETH-BTC, and BTC-AUD tickers, \
 looking for a triangular arbitrage opportunity among the trading pairs.
 
 ### Motivation
-I was researching ways to arbitrage trade on BTC Markets. This is a snippet of what I had been doing.
+I was researching ways to arbitrage trade on BTC Markets. This is a snippet of  \
+what I had been doing.
 
 ### Usage
 Create npm project and install websockets `ws`. Run `websocket.js`
