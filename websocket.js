@@ -5,19 +5,19 @@ const WebSocket = require('ws');
 /* 
 Triangular Arbitrage
   Scenarios:
-  AUD/ETH x ETH/BTC x BTC/AUD = 1
+  AUD/XRP x XRP/BTC x BTC/AUD = 1
   No inherent arbitrage opportunity.
 
-  AUD/ETH x ETH/BTC x BTC/AUD < 1
-  Sell AUD & buy ETH, sell ETH & buy BTC, sell BTC & buy AUD
+  AUD/XRP x XRP/BTC x BTC/AUD < 1
+  Sell AUD & buy XRP, sell XRP & buy BTC, sell BTC & buy AUD
 
-  AUD/ETH x ETH/BTC x BTC/AUD > 1
-  Sell AUD & buy BTC, sell BTC & buy ETH, sell ETH & buy AUD
+  AUD/XRP x XRP/BTC x BTC/AUD > 1
+  Sell AUD & buy BTC, sell BTC & buy XRP, sell XRP & buy AUD
 */
 
 const baseUrl = 'wss://socket.btcmarkets.net/v2';
 const channels = ['tick', 'heartbeat'];
-const marketIds = ['BTC-AUD', 'ETH-AUD', 'ETH-BTC'];
+const marketIds = ['BTC-AUD', 'XRP-AUD', 'XRP-BTC'];
 
 // if using private channels then set api key and secret for authentication
 const key = undefined;
@@ -31,11 +31,11 @@ let request = {
     messageType: 'subscribe'
 }
 
-let bidsETHAUD = null;
-let bidsETHBTC = null;
+let bidsXRPAUD = null;
+let bidsXRPBTC = null;
 let bidsBTCAUD = null;
-let asksETHAUD = null;
-let asksETHBTC = null;
+let asksXRPAUD = null;
+let asksXRPBTC = null;
 let asksBTCAUD = null;
 let tradingAmount = 200;
 
@@ -91,20 +91,20 @@ function processTick(data) {
   let bestAsk = parseFloat(data["bestAsk"]);
   let lastPrice = parseFloat(data["lastPrice"]);
 
-  if (marketId === "ETH-AUD") {
-    bidsETHAUD = bestBid;
-    asksETHAUD = (bestAsk < lastPrice) ? bestAsk : lastPrice;
+  if (marketId === "XRP-AUD") {
+    bidsXRPAUD = bestBid;
+    asksXRPAUD = (bestAsk < lastPrice) ? bestAsk : lastPrice;
   }
-  if (marketId === "ETH-BTC") {
-    bidsETHBTC = bestBid;
-    asksETHBTC = (bestAsk < lastPrice) ? bestAsk : lastPrice;
+  if (marketId === "XRP-BTC") {
+    bidsXRPBTC = bestBid;
+    asksXRPBTC = (bestAsk < lastPrice) ? bestAsk : lastPrice;
   }
   if (marketId === "BTC-AUD") {
     bidsBTCAUD = bestBid;
     asksBTCAUD = (bestAsk < lastPrice) ? bestAsk : lastPrice;
   }
   
-  if (asksETHAUD != null && bidsETHBTC != null && bidsBTCAUD != null) {
+  if (asksXRPAUD != null && bidsXRPBTC != null && bidsBTCAUD != null) {
     calculateArbitrageOpportunity();
   } else {
     console.log("Insufficient data");
@@ -114,25 +114,25 @@ function processTick(data) {
 // (Case 1) Arbitrage opportunity when trading at available prices (most likely will result in taker fees)
 // (Case 2) Arbitrage opportunity when stating ones' own prices (most likely result in maker discounts)
 function calculateArbitrageOpportunity() {
-  if ((asksETHAUD / bidsETHBTC / bidsBTCAUD) < 1) {
-    process.stdout.write(`Taker | AUD --> ETH... |`);//, ETH --> BTC, BTC --> AUD`)
-    getArbitrage(asksETHAUD, bidsETHBTC, bidsBTCAUD, tradingAmount);
+  if ((asksXRPAUD / bidsXRPBTC / bidsBTCAUD) < 1) {
+    process.stdout.write(`Taker | AUD --> XRP... |`);//, XRP --> BTC, BTC --> AUD`)
+    getArbitrage(asksXRPAUD, bidsXRPBTC, bidsBTCAUD, tradingAmount);
   } else {
-    process.stdout.write(`Maker | AUD --> BTC... |`);//, BTC --> ETH, ETH --> AUD`)
-    getArbitrage(bidsBTCAUD, bidsETHBTC, asksETHAUD, tradingAmount, undefined, -0.0005, true);
+    process.stdout.write(`Maker | AUD --> BTC... |`);//, BTC --> XRP, XRP --> AUD`)
+    getArbitrage(bidsBTCAUD, bidsXRPBTC, asksXRPAUD, tradingAmount, undefined, -0.0005, true);
   }
-  if ((asksBTCAUD * asksETHBTC / bidsETHAUD) < 1) {
-    process.stdout.write(`Taker | AUD --> BTC... |`);//, BTC --> ETH, ETH --> AUD`)
-    getArbitrage(asksBTCAUD, asksETHBTC, bidsETHAUD, tradingAmount, undefined, undefined, true);
+  if ((asksBTCAUD * asksXRPBTC / bidsXRPAUD) < 1) {
+    process.stdout.write(`Taker | AUD --> BTC... |`);//, BTC --> XRP, XRP --> AUD`)
+    getArbitrage(asksBTCAUD, asksXRPBTC, bidsXRPAUD, tradingAmount, undefined, undefined, true);
   } else {
-    process.stdout.write(`Maker | AUD --> ETH... |`);//, ETH --> BTC, BTC --> AUD`)
-    getArbitrage(bidsETHAUD, asksETHBTC, asksBTCAUD, tradingAmount, undefined, -0.0005);
+    process.stdout.write(`Maker | AUD --> XRP... |`);//, XRP --> BTC, BTC --> AUD`)
+    getArbitrage(bidsXRPAUD, asksXRPBTC, asksBTCAUD, tradingAmount, undefined, -0.0005);
   }
 }
 
 function getArbitrage(ex1, ex2, ex3, tradingAmount, tradingFee=0.0085, takerFee=0.002, reverseMiddle=false) {
-    // (Normal)  e.g. AUD --> ETH, ETH --> BTC, BTC --> AUD
-    // (Reverse) e.g. AUD --> BTC, BTC --> ETH, ETH --> AUD
+    // (Normal)  e.g. AUD --> XRP, XRP --> BTC, BTC --> AUD
+    // (Reverse) e.g. AUD --> BTC, BTC --> XRP, XRP --> AUD
     let cryptoFromFiat = tradingAmount /(ex1 * (1 + tradingFee));
     let cryptoFromCrypto = (reverseMiddle) ? cryptoFromFiat/(ex2 * (1 + takerFee)) : cryptoFromFiat * ex2 * (1 - takerFee);
     let fiatFromCrypto = cryptoFromCrypto * ex3 * (1 - tradingFee);
