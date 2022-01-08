@@ -17,7 +17,6 @@
   },
   "homepage": "https://github.com/hezh08/triangular-arbitrage#readme",
   "dependencies": {
-    "axios": "^0.21.1",
-    "ws": "^7.4.2"
+    "btcmarkets-node-sdk": "^0.1.14"
   }
 }
