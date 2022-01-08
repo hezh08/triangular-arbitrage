@@ -17,11 +17,11 @@ Create npm project and install `btcmarkets-node-sdk`. Run `main.js` with your
 own API keys and secret.
 
 ### Notes
-With this program, it was found that triangular arbitrage opportunities *only*   
+With this program, it was found that triangular arbitrage opportunities only   
 exist if one sells at the seller's price and buys at the buyer's price i.e.    
-exist by stating ones' own prices (market making).
+exist by stating ones' own prices (market making).  
 
-The author did not find opportunities when buying at the available seller's 
+The author did not find opportunities when buying at the available seller's   
 price and selling at the available buyer's price (market taking).  
 
 Performing live arbitrage remains difficult due to the high    
