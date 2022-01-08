@@ -1,10 +1,14 @@
 # triangular-arbitrage
 This program connects to BTC Markets WebSocket V2 and \
-subscribes to the XRP-AUD, XRP-BTC, and BTC-AUD tickers, \
+subscribes to the ETH-AUD, ETH-BTC, and BTC-AUD tickers, \
 looking for a triangular arbitrage opportunity among the trading pairs.
 
+### Motivation
+I was researching ways to arbitrage trade on BTC Markets. This is a snippet of  \
+what I had been doing.
+
 ### Usage
-Create npm project and install websockets `ws`. Run `websocket.js`
+Create npm project and install `btcmarkets-node-sdk`. Run `main.js`
 
 ### Notes
 With this program, it was found that triangular arbitrage opportunities \
