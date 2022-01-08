@@ -231,7 +231,7 @@ function processTick(data) {
  * Trading fees (max. 0.85%) exist with fiat transactions
  *
  * Taker fee of 0.2% when trading at available prices
- * Maker discount of -0.005% when stating ones' own prices
+ * Maker discount of -0.05% when stating ones' own prices
  */
 
 function calculateArbitrageOpportunity() {
@@ -404,7 +404,7 @@ async function waitOnOrder() {
     do {
       response = await getOpenOrdersRaw();
       console.log(`Waiting on ${response.length} orders`);
-      await sleep(2000); // Pause
+      await sleep(2000); // Pause to prevent going over API limit
     } while (response.length > 0);
   } catch (error) {
     console.error("ERROR!! waitOnOrder --- ", error);
