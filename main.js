@@ -115,12 +115,10 @@ function updatePrices(data) {
   if (marketId === "XRP-AUD") {
     bidsXRPAUD = bestBid;
     asksXRPAUD = bestAsk; // Math.min(bestAsk, lastPrice);
-  }
-  if (marketId === "XRP-BTC") {
+  } else if (marketId === "XRP-BTC") {
     bidsXRPBTC = bestBid;
     asksXRPBTC = bestAsk; // Math.min(bestAsk, lastPrice);
-  }
-  if (marketId === "BTC-AUD") {
+  } else if (marketId === "BTC-AUD") {
     bidsBTCAUD = bestBid;
     asksBTCAUD = bestAsk; // Math.min(bestAsk, lastPrice);
   }
