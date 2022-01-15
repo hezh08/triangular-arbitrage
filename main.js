@@ -18,12 +18,12 @@ async function makeHttpCall(method, path, queryString, dataObj) {
   return new Promise( (resolve, reject) => {
     var data = null;
     if (dataObj) {
-        data = JSON.stringify(dataObj);
+      data = JSON.stringify(dataObj);
     }
     const headers = buildAuthHeaders(method, path, data);
     let fullPath = path;
     if (queryString != null) {
-        fullPath += '?' + queryString
+      fullPath += '?' + queryString
     }
     const httpOptions = {host: baseUrl, path: fullPath, method: method, headers: headers};
     var req = https.request(httpOptions, function(res) {
@@ -123,12 +123,16 @@ function updatePrices(data) {
     asksBTCAUD = bestAsk; // Math.min(bestAsk, lastPrice);
   }
 }
+
+let isInitialised = false;
 async function initialisePrices() {
   try {
     const response = await client.markets.getTickers({marketId: 'BTC-AUD, XRP-AUD, XRP-BTC'});
     response.data.forEach((data) => {
       updatePrices(data);
     });
+
+    isInitialised = true;
   } catch (error) {
     console.error("ERROR!! initialisePrices --- ", error);
   }
@@ -172,7 +176,10 @@ webSocket.on('message', function incoming(jsonData) {
       break;
     case "tick":
       // Websocket main
-      processTick(jsonData["data"]);
+
+      if (isInitialised) {
+        processTick(jsonData["data"]);
+      }
       break;
     default:
       // Should not reach here
@@ -195,19 +202,13 @@ webSocket.on('error', function error(err) {
 // Main logic
 // ======================================================================== //
 
-let tradingAmount = 200;
+let tradingAmount = 500;
 let isTrading = false;
 function processTick(data) {
   updatePrices(data);
 
   if (!isTrading) {
-    if (asksXRPAUD != null && bidsXRPBTC != null && bidsBTCAUD != null) {
-      calculateArbitrageOpportunity();
-    } else {
-      console.log("Insufficient data");
-    }
-  } else {
-    // console.log("Trade in place");
+    calculateArbitrageOpportunity();
   }
 }
 
@@ -262,10 +263,10 @@ function getAmountToReceiveOnAsk(volumeToSend, price, fee) {
 }
 
 function getArbitrage(
-    id1, id2, id3, 
-    side1, side2, side3, 
-    price1, price2, price3, 
-    buyFirst, buyMiddle) {
+  id1, id2, id3, 
+  side1, side2, side3, 
+  price1, price2, price3, 
+  buyFirst, buyMiddle) {
 
   // (Case 1)  e.g. AUD --> XRP, XRP --> BTC, BTC --> AUD = Buy XRP using AUD, sell XRP for BTC, sell BTC for AUD
   // (Case 2)  e.g. BTC --> AUD, XRP --> BTC, AUD --> XRP = Sell BTC for AUD, sell BTC for XRP, buy XRP using AUD
@@ -274,7 +275,7 @@ function getArbitrage(
 
   const takerFee = 0.002; // We assume a taker fee in that we are matching a readily available price
   let cryptoFromFiat, cryptoFromCrypto, fiatFromCrypto;
-  
+
   // We either Buy at Ask prices or Sell at Bid prices
   //
   // If first transaction is not 'Buy', then first transaction is 'Sell' and
@@ -285,7 +286,7 @@ function getArbitrage(
       ? getAmountToReceiveOnBid(cryptoFromFiat, price2, takerFee)
       : getAmountToReceiveOnAsk(cryptoFromFiat, price2, takerFee);
     fiatFromCrypto = getAmountToReceiveOnAsk(cryptoFromCrypto, price3, tradingFee);
-    
+
     // console.log(id1, id2, id3, side1, side2, side3);
     // console.log(price1, price2, price3, tradingFee, takerFee);
     // console.log(`Spend ${tradingAmount} on Fiat to buy ${cryptoFromFiat} crypto`);
@@ -318,7 +319,7 @@ function getArbitrage(
   // console.log(`Turnover = ${fiatFromCrypto} - ${tradingAmount} = ${turnover}`);
 
   if (turnover > 0) {
-    const order = (buyFirst) ? {
+    const order = {
       "id1": id1,
       "id2": id2,
       "id3": id3,
@@ -328,22 +329,9 @@ function getArbitrage(
       "price1": price1,
       "price2": price2,
       "price3": price3,
-      "amount1": tradingAmount,
-      "amount2": cryptoFromFiat,
-      "amount3": cryptoFromCrypto
-    } : {
-      "id1": id1,
-      "id2": id2,
-      "id3": id3,
-      "side1": side1,
-      "side2": side2,
-      "side3": side3,
-      "price1": price1,
-      "price2": price2,
-      "price3": price3,
-      "amount1": cryptoFromCrypto,
-      "amount2": cryptoFromFiat,
-      "amount3": tradingAmount
+      "amount1": (buyFirst) ? cryptoFromFiat : cryptoFromCrypto,
+      "amount2": (buyMiddle) ? cryptoFromCrypto : cryptoFromFiat,
+      "amount3": (buyFirst) ? cryptoFromCrypto : cryptoFromFiat
     };
 
     makeTrade(order);
@@ -353,9 +341,12 @@ function getArbitrage(
 async function makeTrade(order) {
   isTrading = true;
   const start = Date.now();
-
-  const response = await sendOrder(order);
-  console.log(response);
+  try {
+    const response = await sendOrder(order);
+    console.log(response);
+  } catch (error) {
+    console.error("ERROR!! sendOrder --- ", error);
+  }
   await waitOnOrder();
   const duration = Date.now() - start;
   console.log(`Trade completed in ${duration} ms`);
@@ -364,36 +355,32 @@ async function makeTrade(order) {
 
 async function sendOrder(order) {
   console.log("Placing a trade order");
-  try {
-    const order1 = {
-      marketId: order["id1"],
-      side: order["side1"],
-      type: 'Limit',
-      price: order["price1"].toString(),
-      amount: order["amount1"].toFixed(8)
-    };
-    const order2 = {
-      marketId: order["id2"],
-      side: order["side2"],
-      type: 'Limit',
-      price: order["price2"].toString(),
-      amount: order["amount2"].toFixed(8)
-    };
-    const order3 = {
-      marketId: order["id3"],
-      side: order["side3"],
-      type: 'Limit',
-      price: order["price3"].toString(),
-      amount: order["amount3"].toFixed(8)
-    }
-    return Promise.all([
-      client.orders.placeNewOrder(order1),
-      client.orders.placeNewOrder(order2),
-      client.orders.placeNewOrder(order3)
-    ]);
-  } catch (error) {
-    console.error("ERROR!! sendOrder --- ", error);
+  const order1 = {
+    marketId: order["id1"],
+    side: order["side1"],
+    type: 'Limit',
+    price: order["price1"].toString(),
+    amount: order["amount1"].toFixed(8)
+  };
+  const order2 = {
+    marketId: order["id2"],
+    side: order["side2"],
+    type: 'Limit',
+    price: order["price2"].toString(),
+    amount: order["amount2"].toFixed(8)
+  };
+  const order3 = {
+    marketId: order["id3"],
+    side: order["side3"],
+    type: 'Limit',
+    price: order["price3"].toString(),
+    amount: order["amount3"].toFixed(8)
   }
+  return Promise.all([
+    client.orders.placeNewOrder(order1),
+    client.orders.placeNewOrder(order2),
+    client.orders.placeNewOrder(order3)
+  ]);
 }
 
 async function waitOnOrder() {
