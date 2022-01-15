@@ -13,7 +13,7 @@ Triangular Arbitrage
 
   AUD/ETH x ETH/BTC x BTC/AUD > 1
   Sell AUD & buy BTC, sell BTC & buy ETH, sell ETH & buy AUD
-*/
+  */
 
 const baseUrl = 'wss://socket.btcmarkets.net/v2';
 const channels = ['tick', 'heartbeat'];
@@ -22,9 +22,9 @@ const marketIds = ['BTC-AUD', 'ETH-AUD', 'ETH-BTC'];
 const ws = new WebSocket(baseUrl);
 
 let request = {
-    marketIds: marketIds,
-    channels: channels,
-    messageType: 'subscribe'
+  marketIds: marketIds,
+  channels: channels,
+  messageType: 'subscribe'
 }
 
 let bidsETHAUD = null;
@@ -81,7 +81,7 @@ function processTick(data) {
     bidsBTCAUD = bestBid;
     asksBTCAUD = bestAsk;
   }
-  
+
   if (asksETHAUD != null && bidsETHBTC != null && bidsBTCAUD != null) {
     calculateArbitrageOpportunity();
   } else {
@@ -93,32 +93,30 @@ function processTick(data) {
 // (Case 2) Arbitrage opportunity when stating ones' own prices (most likely result in maker discounts)
 function calculateArbitrageOpportunity() {
   if ((asksETHAUD / bidsETHBTC / bidsBTCAUD) < 1) {
-    process.stdout.write(`Taker | AUD --> ETH... |`);//, ETH --> BTC, BTC --> AUD`)
+    process.stdout.write(`Taker | AUD --> ETH, ETH --> BTC, BTC --> AUD`);
     getArbitrage(asksETHAUD, bidsETHBTC, bidsBTCAUD, tradingAmount);
   } else {
-    process.stdout.write(`Maker | AUD --> BTC... |`);//, BTC --> ETH, ETH --> AUD`)
-    getArbitrage(bidsBTCAUD, bidsETHBTC, asksETHAUD, tradingAmount, undefined, -0.0005, true);
+    process.stdout.write(`Maker | AUD --> BTC, BTC --> ETH, ETH --> AUD`);
+    getArbitrage(bidsBTCAUD, bidsETHBTC, asksETHAUD, tradingAmount, true);
   }
   if ((asksBTCAUD * asksETHBTC / bidsETHAUD) < 1) {
-    process.stdout.write(`Taker | AUD --> BTC... |`);//, BTC --> ETH, ETH --> AUD`)
-    getArbitrage(asksBTCAUD, asksETHBTC, bidsETHAUD, tradingAmount, undefined, undefined, true);
+    process.stdout.write(`Taker | AUD --> BTC, BTC --> ETH, ETH --> AUD`);
+    getArbitrage(asksBTCAUD, asksETHBTC, bidsETHAUD, tradingAmount, true);
   } else {
-    process.stdout.write(`Maker | AUD --> ETH... |`);//, ETH --> BTC, BTC --> AUD`)
-    getArbitrage(bidsETHAUD, asksETHBTC, asksBTCAUD, tradingAmount, undefined, -0.0005);
+    process.stdout.write(`Maker | AUD --> ETH, ETH --> BTC, BTC --> AUD`);
+    getArbitrage(bidsETHAUD, asksETHBTC, asksBTCAUD, tradingAmount);
   }
 }
 
-function getArbitrage(ex1, ex2, ex3, tradingAmount, tradingFee=0.0085, takerFee=0.002, reverseMiddle=false) {
-    // (Normal)  e.g. AUD --> ETH, ETH --> BTC, BTC --> AUD
-    // (Reverse) e.g. AUD --> BTC, BTC --> ETH, ETH --> AUD
-    let cryptoFromFiat = tradingAmount /(ex1 * (1 + tradingFee));
-    let cryptoFromCrypto = (reverseMiddle) ? cryptoFromFiat/(ex2 * (1 + takerFee)) : cryptoFromFiat * ex2 * (1 - takerFee);
-    let fiatFromCrypto = cryptoFromCrypto * ex3 * (1 - tradingFee);
-    let turnover = fiatFromCrypto - tradingAmount;
-    
-    if (turnover > 0) {
-      console.log(" Arbitrage Opportunity | Profit: $" + turnover);
-    } else {
-      console.log(" Excessive Transaction Costs | Loss: $" + turnover);
-    }
+function getArbitrage(ex1, ex2, ex3, tradingAmount, reverseMiddle=false) {
+  const tradingFee=0.0060;
+  const takerFee=0.002;
+  // (Normal)  e.g. AUD --> ETH, ETH --> BTC, BTC --> AUD
+  // (Reverse) e.g. AUD --> BTC, BTC --> ETH, ETH --> AUD
+  const cryptoFromFiat = tradingAmount /(ex1 * (1 + tradingFee));
+  const cryptoFromCrypto = (reverseMiddle) ? cryptoFromFiat/(ex2 * (1 + takerFee)) : cryptoFromFiat * ex2 * (1 - takerFee);
+  const fiatFromCrypto = cryptoFromCrypto * ex3 * (1 - tradingFee);
+  const turnover = fiatFromCrypto - tradingAmount;
+
+  console.log(" | Turnover: " + turnover);
 }

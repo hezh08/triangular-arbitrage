@@ -118,6 +118,7 @@ async function getTradingFee() {
   try {
     const response = await getTradingFeeRaw();
     tradingFee = parseFloat(response["feeByMarkets"][0]["takerFeeRate"]);
+    console.log("Trading fee: " + tradingFee);
   } catch (error) {
     console.error("ERROR!! getTradingFee --- ", error);
   }
@@ -260,19 +261,19 @@ function calculateArbitrageOpportunity() {
   if ((asksETHAUD / bidsETHBTC / bidsBTCAUD) < 1) {
     // (Case 1) Buy ETH using AUD, sell ETH for BTC, sell BTC for AUD
     process.stdout.write("AUD --> ETH, ETH --> BTC, BTC --> AUD | ");
-    getArbitrage("ETH-AUD", "ETH-BTC", "BTC-AUD", "Bid", "Ask", "Ask", asksETHAUD, bidsETHBTC, bidsBTCAUD, 0.002); // Taker
+    getArbitrage("ETH-AUD", "ETH-BTC", "BTC-AUD", "Bid", "Ask", "Ask", asksETHAUD, bidsETHBTC, bidsBTCAUD);
   } else {
     // (Case 2) Buy BTC using AUD, buy ETH using BTC, sell ETH for AUD
-    process.stdout.write("AUD --> BTC, BTC --> ETH, ETH --> AUD | ");
-    getArbitrage("BTC-AUD", "ETH-BTC", "ETH-AUD", "Ask", "Ask", "Bid", bidsBTCAUD, bidsETHBTC, asksETHAUD, 0.002, true); // Maker
+    // process.stdout.write("AUD --> BTC, BTC --> ETH, ETH --> AUD | ");
+    // getArbitrage("BTC-AUD", "ETH-BTC", "ETH-AUD", "Bid", "Bid", "Ask", bidsBTCAUD, bidsETHBTC, asksETHAUD, true);
   }
   if ((asksBTCAUD * asksETHBTC / bidsETHAUD) < 1) {
     // (Case 3) Buy BTC using AUD, buy ETH using BTC, sell ETH for AUD
-    getArbitrage("BTC-AUD", "ETH-BTC", "ETH-AUD", "Bid", "Bid", "Ask", asksBTCAUD, asksETHBTC, bidsETHAUD, 0.002, true); // Taker
+    getArbitrage("BTC-AUD", "ETH-BTC", "ETH-AUD", "Bid", "Bid", "Ask", asksBTCAUD, asksETHBTC, bidsETHAUD, true);
   } else {
     // (Case 4) Buy ETH using AUD, sell ETH for BTC, sell BTC for AUD
-    process.stdout.write("ETH --> AUD, BTC --> ETH, AUD --> BTC | ");
-    getArbitrage("ETH-AUD", "ETH-BTC", "BTC-AUD", "Ask", "Bid", "Bid", bidsETHAUD, asksETHBTC, asksBTCAUD, 0.002); // Maker
+    // process.stdout.write("ETH --> AUD, BTC --> ETH, AUD --> BTC | ");
+    // getArbitrage("ETH-AUD", "ETH-BTC", "BTC-AUD", "Bid", "Ask", "Ask", bidsETHAUD, asksETHBTC, asksBTCAUD);
   }
 }
 
@@ -288,28 +289,27 @@ function getArbitrage(
   id1, id2, id3, 
   side1, side2, side3, 
   price1, price2, price3, 
-  makerTakerFee=0.002,
   buyMiddle=false) {
+
+  const takerFee = 0.002;
 
     // (Case 1)  e.g. AUD --> ETH, ETH --> BTC, BTC --> AUD = Buy ETH using AUD, sell ETH for BTC, sell BTC for AUD
     // (Case 2)  e.g. BTC --> AUD, ETH --> BTC, AUD --> ETH = Buy BTC using AUD, buy ETH using BTC, sell ETH for AUD
     // (Case 3)  e.g. AUD --> BTC, BTC --> ETH, ETH --> AUD = Buy BTC using AUD, buy ETH using BTC, sell ETH for AUD
     // (Case 4)  e.g. ETH --> AUD, BTC --> ETH, AUD --> BTC = Buy ETH using AUD, sell ETH for BTC, sell BTC for AUD
 
-  let cryptoFromFiat, cryptoFromCrypto, fiatFromCrypto;
-
-  cryptoFromFiat = getAmountToReceiveOnBid(tradingAmount, price1, tradingFee);
-  cryptoFromCrypto = (buyMiddle) 
-    ? getAmountToReceiveOnBid(cryptoFromFiat, price2, makerTakerFee)
-    : getAmountToReceiveOnAsk(cryptoFromFiat, price2, makerTakerFee);
-  fiatFromCrypto = getAmountToReceiveOnAsk(cryptoFromCrypto, price3, tradingFee);
+  const cryptoFromFiat = getAmountToReceiveOnBid(tradingAmount, price1, tradingFee);
+  const cryptoFromCrypto = (buyMiddle) 
+    ? getAmountToReceiveOnBid(cryptoFromFiat, price2, takerFee)
+    : getAmountToReceiveOnAsk(cryptoFromFiat, price2, takerFee);
+  const fiatFromCrypto = getAmountToReceiveOnAsk(cryptoFromCrypto, price3, tradingFee);
 
   const turnover = fiatFromCrypto - tradingAmount;
   console.log("Turnover: " + turnover);
 
   if (turnover > 0) {
     console.log(id1, id2, id3, side1, side2, side3);
-    console.log(price1, price2, price3, tradingFee, makerTakerFee);
+    console.log(price1, price2, price3, tradingFee, takerFee);
     console.log(`Spend ${tradingAmount} on Fiat to buy ${cryptoFromFiat} crypto`);
     if (buyMiddle) {
       console.log(`Spend ${cryptoFromFiat} on crypto to buy ${cryptoFromCrypto} crypto`);
