@@ -89,7 +89,7 @@ let isTrading = true;
 async function waitOnOrder() {
   try {
     let response;
-    let nOrders = 0;
+    let nOrders = 3;
     do {
       response = await getOpenOrdersRaw();
       if (response.length != nOrders) {
@@ -125,7 +125,7 @@ async function getTradingFee() {
 
 // bidsXXXXXX = prices to sell
 // asksXXXXXX = prices to buy
-let bidsXRPAUD, bidsXRPBTC, bidsBTCAUD, asksXRPAUD, asksXRPBTC, asksBTCAUD;
+let bidsETHAUD, bidsETHBTC, bidsBTCAUD, asksETHAUD, asksETHBTC, asksBTCAUD;
 function updatePrices(data) {
   const marketId = data["marketId"];
   const bestBid = parseFloat(data["bestBid"]);
@@ -135,12 +135,12 @@ function updatePrices(data) {
   // For Ask price, if we were to set the price at the readily available
   // price of the seller, this would increase the chances of the transaction
   // happening. However, it would also mean less profits / more losses.
-  if (marketId === "XRP-AUD") {
-    bidsXRPAUD = bestBid;
-    asksXRPAUD = bestAsk; // Math.min(bestAsk, lastPrice);
-  } else if (marketId === "XRP-BTC") {
-    bidsXRPBTC = bestBid;
-    asksXRPBTC = bestAsk; // Math.min(bestAsk, lastPrice);
+  if (marketId === "ETH-AUD") {
+    bidsETHAUD = bestBid;
+    asksETHAUD = bestAsk; // Math.min(bestAsk, lastPrice);
+  } else if (marketId === "ETH-BTC") {
+    bidsETHBTC = bestBid;
+    asksETHBTC = bestAsk; // Math.min(bestAsk, lastPrice);
   } else if (marketId === "BTC-AUD") {
     bidsBTCAUD = bestBid;
     asksBTCAUD = bestAsk; // Math.min(bestAsk, lastPrice);
@@ -150,7 +150,7 @@ function updatePrices(data) {
 let isInitialised = false;
 async function initialisePrices() {
   try {
-    const response = await client.markets.getTickers({marketId: 'BTC-AUD, XRP-AUD, XRP-BTC'});
+    const response = await client.markets.getTickers({marketId: 'BTC-AUD, ETH-AUD, ETH-BTC'});
     response.data.forEach((data) => {
       updatePrices(data);
     });
@@ -182,7 +182,7 @@ checkForOpenOrders();
 // ======================================================================== //
 
 webSocket.subscribe({
-  marketIds: ['BTC-AUD', 'XRP-AUD', 'XRP-BTC'],
+  marketIds: ['BTC-AUD', 'ETH-AUD', 'ETH-BTC'],
   channels: ['tick', 'heartbeat'],     
 });
 
@@ -238,14 +238,14 @@ function processTick(data) {
 /* Triangular Arbitrage
  *
  * Scenarios:
- * AUD/XRP x XRP/BTC x BTC/AUD = 1
+ * AUD/ETH x ETH/BTC x BTC/AUD = 1
  * No inherent arbitrage opportunity.
  *
- * AUD/XRP x XRP/BTC x BTC/AUD < 1
- * Sell AUD & buy XRP, sell XRP & buy BTC, sell BTC & buy AUD (read left to right)
+ * AUD/ETH x ETH/BTC x BTC/AUD < 1
+ * Sell AUD & buy ETH, sell ETH & buy BTC, sell BTC & buy AUD (read left to right)
  *
- * AUD/XRP x XRP/BTC x BTC/AUD > 1
- * Sell AUD & buy BTC, sell BTC & buy XRP, sell XRP & buy AUD (read right to left)
+ * AUD/ETH x ETH/BTC x BTC/AUD > 1
+ * Sell AUD & buy BTC, sell BTC & buy ETH, sell ETH & buy AUD (read right to left)
  */
 
 /* Fees policy
@@ -257,23 +257,22 @@ function processTick(data) {
  */
 
 function calculateArbitrageOpportunity() {
-  if ((asksXRPAUD / bidsXRPBTC / bidsBTCAUD) < 1) {
-    // (Case 1) Buy XRP using AUD, sell XRP for BTC, sell BTC for AUD
-    process.stdout.write("AUD --> XRP, XRP --> BTC, BTC --> AUD | ");
-    getArbitrage("XRP-AUD", "XRP-BTC", "BTC-AUD", "Bid", "Ask", "Ask", asksXRPAUD, bidsXRPBTC, bidsBTCAUD, true, false);
+  if ((asksETHAUD / bidsETHBTC / bidsBTCAUD) < 1) {
+    // (Case 1) Buy ETH using AUD, sell ETH for BTC, sell BTC for AUD
+    process.stdout.write("AUD --> ETH, ETH --> BTC, BTC --> AUD | ");
+    getArbitrage("ETH-AUD", "ETH-BTC", "BTC-AUD", "Bid", "Ask", "Ask", asksETHAUD, bidsETHBTC, bidsBTCAUD, 0.002); // Taker
   } else {
-    // (Case 2) Sell BTC for AUD, sell BTC for XRP, buy XRP using AUD
-    process.stdout.write("BTC --> AUD, XRP --> BTC, AUD --> XRP | ");
-    getArbitrage("BTC-AUD", "XRP-BTC", "XRP-AUD", "Ask", "Ask", "Bid", bidsBTCAUD, bidsXRPBTC, asksXRPAUD, false, false);
+    // (Case 2) Buy BTC using AUD, buy ETH using BTC, sell ETH for AUD
+    process.stdout.write("AUD --> BTC, BTC --> ETH, ETH --> AUD | ");
+    getArbitrage("BTC-AUD", "ETH-BTC", "ETH-AUD", "Ask", "Ask", "Bid", bidsBTCAUD, bidsETHBTC, asksETHAUD, 0.002, true); // Maker
   }
-  if ((asksBTCAUD * asksXRPBTC / bidsXRPAUD) < 1) {
-    // (Case 3) Buy BTC using AUD, buy XRP using BTC, sell XRP for AUD
-    process.stdout.write("AUD --> BTC, BTC --> XRP, XRP --> AUD | ");
-    getArbitrage("BTC-AUD", "XRP-BTC", "XRP-AUD", "Bid", "Bid", "Ask", asksBTCAUD, asksXRPBTC, bidsXRPAUD, true, true);
+  if ((asksBTCAUD * asksETHBTC / bidsETHAUD) < 1) {
+    // (Case 3) Buy BTC using AUD, buy ETH using BTC, sell ETH for AUD
+    getArbitrage("BTC-AUD", "ETH-BTC", "ETH-AUD", "Bid", "Bid", "Ask", asksBTCAUD, asksETHBTC, bidsETHAUD, 0.002, true); // Taker
   } else {
-    // (Case 4) Sell XRP for AUD, buy XRP using BTC, buy BTC using AUD
-    process.stdout.write("XRP --> AUD, BTC --> XRP, AUD --> BTC | ");
-    getArbitrage("XRP-AUD", "XRP-BTC", "BTC-AUD", "Ask", "Bid", "Bid", bidsXRPAUD, asksXRPBTC, asksBTCAUD, false, true);
+    // (Case 4) Buy ETH using AUD, sell ETH for BTC, sell BTC for AUD
+    process.stdout.write("ETH --> AUD, BTC --> ETH, AUD --> BTC | ");
+    getArbitrage("ETH-AUD", "ETH-BTC", "BTC-AUD", "Ask", "Bid", "Bid", bidsETHAUD, asksETHBTC, asksBTCAUD, 0.002); // Maker
   }
 }
 
@@ -289,59 +288,37 @@ function getArbitrage(
   id1, id2, id3, 
   side1, side2, side3, 
   price1, price2, price3, 
-  buyFirst, buyMiddle) {
+  makerTakerFee=0.002,
+  buyMiddle=false) {
 
-  // (Case 1)  e.g. AUD --> XRP, XRP --> BTC, BTC --> AUD = Buy XRP using AUD, sell XRP for BTC, sell BTC for AUD
-  // (Case 2)  e.g. BTC --> AUD, XRP --> BTC, AUD --> XRP = Sell BTC for AUD, sell BTC for XRP, buy XRP using AUD
-  // (Case 3)  e.g. AUD --> BTC, BTC --> XRP, XRP --> AUD = Buy BTC using AUD, buy XRP using BTC, sell XRP for AUD
-  // (Case 4)  e.g. XRP --> AUD, BTC --> XRP, AUD --> BTC = Sell XRP for AUD, buy XRP using BTC, buy BTC using AUD
+    // (Case 1)  e.g. AUD --> ETH, ETH --> BTC, BTC --> AUD = Buy ETH using AUD, sell ETH for BTC, sell BTC for AUD
+    // (Case 2)  e.g. BTC --> AUD, ETH --> BTC, AUD --> ETH = Buy BTC using AUD, buy ETH using BTC, sell ETH for AUD
+    // (Case 3)  e.g. AUD --> BTC, BTC --> ETH, ETH --> AUD = Buy BTC using AUD, buy ETH using BTC, sell ETH for AUD
+    // (Case 4)  e.g. ETH --> AUD, BTC --> ETH, AUD --> BTC = Buy ETH using AUD, sell ETH for BTC, sell BTC for AUD
 
-  const takerFee = 0.002; // We assume a taker fee in that we are matching a readily available price
   let cryptoFromFiat, cryptoFromCrypto, fiatFromCrypto;
 
-  // We either Buy at Ask prices or Sell at Bid prices
-  //
-  // If first transaction is not 'Buy', then first transaction is 'Sell' and
-  // last transaction will be 'Buy'
-  if (buyFirst) {
-    cryptoFromFiat = getAmountToReceiveOnBid(tradingAmount, price1, tradingFee);
-    cryptoFromCrypto = (buyMiddle)
-      ? getAmountToReceiveOnBid(cryptoFromFiat, price2, takerFee)
-      : getAmountToReceiveOnAsk(cryptoFromFiat, price2, takerFee);
-    fiatFromCrypto = getAmountToReceiveOnAsk(cryptoFromCrypto, price3, tradingFee);
+  cryptoFromFiat = getAmountToReceiveOnBid(tradingAmount, price1, tradingFee);
+  cryptoFromCrypto = (buyMiddle) 
+    ? getAmountToReceiveOnBid(cryptoFromFiat, price2, makerTakerFee)
+    : getAmountToReceiveOnAsk(cryptoFromFiat, price2, makerTakerFee);
+  fiatFromCrypto = getAmountToReceiveOnAsk(cryptoFromCrypto, price3, tradingFee);
 
-  } else {
-    cryptoFromFiat = getAmountToReceiveOnBid(tradingAmount, price3, tradingFee);
-    cryptoFromCrypto = (buyMiddle)
-      ? getAmountToReceiveOnBid(cryptoFromFiat, price2, takerFee)
-      : getAmountToReceiveOnAsk(cryptoFromFiat, price2, takerFee);
-    fiatFromCrypto = getAmountToReceiveOnAsk(cryptoFromCrypto, price1, tradingFee);
-
-  }
   const turnover = fiatFromCrypto - tradingAmount;
-
   console.log("Turnover: " + turnover);
 
   if (turnover > 0) {
-    // console.log(id1, id2, id3, side1, side2, side3);
-    // console.log(price1, price2, price3, tradingFee, takerFee);
-    // if (buyFirst) {
-    //   console.log(`Spend ${tradingAmount} on Fiat to buy ${cryptoFromFiat} crypto`);
-    // } else {
-    //   console.log(`Sell ${cryptoFromCrypto} crypto to receive ${fiatFromCrypto} fiat`);
-    // }
-    // if (buyMiddle) {
-    //   console.log(`Spend ${cryptoFromFiat} on crypto to buy ${cryptoFromCrypto} crypto`);
-    // } else {
-    //   console.log(`Sell ${cryptoFromFiat} crypto to receive ${cryptoFromCrypto} crypto`);
-    // }
-    // if (buyFirst) {
-    //   console.log(`Sell ${cryptoFromCrypto} crypto to receive ${fiatFromCrypto} fiat`);
-    // } else {
-    //   console.log(`Spend ${tradingAmount} on Fiat to buy ${cryptoFromFiat} crypto`);
-    // }
-    // console.log(`Turnover = ${fiatFromCrypto} - ${tradingAmount} = ${turnover}`);
-    
+    console.log(id1, id2, id3, side1, side2, side3);
+    console.log(price1, price2, price3, tradingFee, makerTakerFee);
+    console.log(`Spend ${tradingAmount} on Fiat to buy ${cryptoFromFiat} crypto`);
+    if (buyMiddle) {
+      console.log(`Spend ${cryptoFromFiat} on crypto to buy ${cryptoFromCrypto} crypto`);
+    } else {
+      console.log(`Sell ${cryptoFromFiat} crypto to receive ${cryptoFromCrypto} crypto`);
+    }
+    console.log(`Sell ${cryptoFromCrypto} crypto to receive ${fiatFromCrypto} fiat`);
+    console.log(`Turnover = ${fiatFromCrypto} - ${tradingAmount} = ${turnover}`);
+
     const order = {
       "id1": id1,
       "id2": id2,
@@ -352,9 +329,9 @@ function getArbitrage(
       "price1": price1,
       "price2": price2,
       "price3": price3,
-      "amount1": (buyFirst) ? cryptoFromFiat : cryptoFromCrypto,
+      "amount1": cryptoFromFiat,
       "amount2": (buyMiddle) ? cryptoFromCrypto : cryptoFromFiat,
-      "amount3": (buyFirst) ? cryptoFromCrypto : cryptoFromFiat
+      "amount3": cryptoFromCrypto
     };
 
     makeTrade(order);
