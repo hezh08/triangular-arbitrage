@@ -85,6 +85,29 @@ async function getOpenOrdersRaw() {
   return makeHttpCall('GET', path, 'status=open', null);
 }
 
+let isTrading = true;
+async function waitOnOrder() {
+  try {
+    let response;
+    let nOrders = 0;
+    do {
+      response = await getOpenOrdersRaw();
+      if (response.length != nOrders) {
+        console.log(`Waiting on ${response.length} orders`);
+        console.log(response);
+        nOrders = response.length;
+      }
+      await sleep(10000); // Pause to prevent going over API limit
+    } while (response.length > 0);
+  } catch (error) {
+    console.error("ERROR!! waitOnOrder --- ", error);
+  }
+}
+async function checkForOpenOrders() {
+  await waitOnOrder();
+  isTrading = false;
+}
+
 let tradingFee = 0.0085; 
 async function getTradingFeeRaw() {
   // Promise rejection is unhandled
@@ -151,6 +174,7 @@ function lostConnection() {
 
 getTradingFee();
 initialisePrices();
+checkForOpenOrders();
 
 
 
@@ -203,7 +227,6 @@ webSocket.on('error', function error(err) {
 // ======================================================================== //
 
 let tradingAmount = 500;
-let isTrading = false;
 function processTick(data) {
   updatePrices(data);
 
@@ -287,15 +310,6 @@ function getArbitrage(
       : getAmountToReceiveOnAsk(cryptoFromFiat, price2, takerFee);
     fiatFromCrypto = getAmountToReceiveOnAsk(cryptoFromCrypto, price3, tradingFee);
 
-    // console.log(id1, id2, id3, side1, side2, side3);
-    // console.log(price1, price2, price3, tradingFee, takerFee);
-    // console.log(`Spend ${tradingAmount} on Fiat to buy ${cryptoFromFiat} crypto`);
-    // if (buyMiddle) {
-    //   console.log(`Spend ${cryptoFromFiat} on crypto to buy ${cryptoFromCrypto} crypto`);
-    // } else {
-    //   console.log(`Sell ${cryptoFromFiat} crypto to receive ${cryptoFromCrypto} crypto`);
-    // }
-    // console.log(`Sell ${cryptoFromCrypto} crypto to receive ${fiatFromCrypto} fiat`);
   } else {
     cryptoFromFiat = getAmountToReceiveOnBid(tradingAmount, price3, tradingFee);
     cryptoFromCrypto = (buyMiddle)
@@ -303,22 +317,31 @@ function getArbitrage(
       : getAmountToReceiveOnAsk(cryptoFromFiat, price2, takerFee);
     fiatFromCrypto = getAmountToReceiveOnAsk(cryptoFromCrypto, price1, tradingFee);
 
+  }
+  const turnover = fiatFromCrypto - tradingAmount;
+
+  console.log("Turnover: " + turnover);
+
+  if (turnover > 0) {
     // console.log(id1, id2, id3, side1, side2, side3);
     // console.log(price1, price2, price3, tradingFee, takerFee);
-    // console.log(`Sell ${cryptoFromCrypto} crypto to receive ${fiatFromCrypto} fiat`);
+    // if (buyFirst) {
+    //   console.log(`Spend ${tradingAmount} on Fiat to buy ${cryptoFromFiat} crypto`);
+    // } else {
+    //   console.log(`Sell ${cryptoFromCrypto} crypto to receive ${fiatFromCrypto} fiat`);
+    // }
     // if (buyMiddle) {
     //   console.log(`Spend ${cryptoFromFiat} on crypto to buy ${cryptoFromCrypto} crypto`);
     // } else {
     //   console.log(`Sell ${cryptoFromFiat} crypto to receive ${cryptoFromCrypto} crypto`);
     // }
-    // console.log(`Spend ${tradingAmount} on Fiat to buy ${cryptoFromFiat} crypto`);
-  }
-  const turnover = fiatFromCrypto - tradingAmount;
-
-  console.log("Turnover: " + turnover);
-  // console.log(`Turnover = ${fiatFromCrypto} - ${tradingAmount} = ${turnover}`);
-
-  if (turnover > 0) {
+    // if (buyFirst) {
+    //   console.log(`Sell ${cryptoFromCrypto} crypto to receive ${fiatFromCrypto} fiat`);
+    // } else {
+    //   console.log(`Spend ${tradingAmount} on Fiat to buy ${cryptoFromFiat} crypto`);
+    // }
+    // console.log(`Turnover = ${fiatFromCrypto} - ${tradingAmount} = ${turnover}`);
+    
     const order = {
       "id1": id1,
       "id2": id2,
@@ -383,18 +406,6 @@ async function sendOrder(order) {
   ]);
 }
 
-async function waitOnOrder() {
-  try {
-    let response;
-    do {
-      response = await getOpenOrdersRaw();
-      console.log(`Waiting on ${response.length} orders`);
-      await sleep(2000); // Pause to prevent going over API limit
-    } while (response.length > 0);
-  } catch (error) {
-    console.error("ERROR!! waitOnOrder --- ", error);
-  }
-}
 
 
 
